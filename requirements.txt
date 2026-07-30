@@ -1,0 +1,11 @@
+torch
+torchvision
+torchaudio
+--extra-index-url https://download.pytorch.org/whl/cu121
+transformers
+accelerate
+bitsandbytes
+networkx
+folium
+numpy
+pandas
