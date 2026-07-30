@@ -30,7 +30,7 @@ class GemmaBrain:
         self.model = AutoModelForMultimodalLM.from_pretrained(
             self.MODEL_ID,
             quantization_config=bnb_config,
-            device_map="auto",
+            device_map={"": 0},  # Force loading onto GPU 0
             attn_implementation="sdpa",  # faster than eager
             torch_dtype=torch.bfloat16,
         )
