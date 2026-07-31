@@ -19,6 +19,7 @@ class ToolExecutor:
             "recompute_route_from_current_pos": mocks.recompute_route_from_current_pos,
             "select_best_landing_zone": mocks.select_best_landing_zone,
             "log_decision": mocks.log_decision,
+            "assess_risk": getattr(mocks, "assess_risk", None),
         }
 
     def execute(self, name: str, arguments: Dict) -> Any:
