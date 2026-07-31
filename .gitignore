@@ -1,4 +1,4 @@
-models/
+/models/
 *.exe
 __pycache__/
 *.pyc
