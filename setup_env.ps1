@@ -1,9 +1,17 @@
 # Setup Environment for Khumbu Engine (Gemma-4 on RTX 4050)
 
+param(
+    [string]$PythonExe = "python"
+)
+
 $ErrorActionPreference = "Stop"
 
-Write-Host "Creating Python virtual environment 'venv'..."
-python -m venv venv
+if (-Not (Test-Path "venv")) {
+    Write-Host "Creating Python virtual environment 'venv' using $PythonExe..."
+    & $PythonExe -m venv venv
+} else {
+    Write-Host "Virtual environment 'venv' already exists."
+}
 
 Write-Host "Activating virtual environment..."
 $env:VIRTUAL_ENV = "$PWD\venv"

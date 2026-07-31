@@ -1,10 +1,8 @@
-torch
-torchvision
-torchaudio
---extra-index-url https://download.pytorch.org/whl/cu121
-transformers
-accelerate
-bitsandbytes
+# Khumbu Engine - GGUF/llama.cpp backend (replaces transformers + bitsandbytes)
+llama-cpp-python
+huggingface_hub
+
+# Utility
 networkx
 folium
 numpy

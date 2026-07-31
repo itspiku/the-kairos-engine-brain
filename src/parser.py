@@ -26,7 +26,7 @@ class GemmaParser:
                     if low == 'false': return False
                     return v.strip("'\"")
 
-        pattern = r"<\|tool_call>call:(\w+)\{(.*?)\}<tool_call\|>"
+        pattern = r"<\|tool_call(?:\||>)?(?:call:)?(\w+)\{(.*?)\}<tool_call\|?>"
         matches = re.findall(pattern, text, re.DOTALL)
         
         calls = []
