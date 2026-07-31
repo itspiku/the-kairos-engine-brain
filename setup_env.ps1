@@ -1,29 +1,26 @@
-# Setup Environment for Khumbu Engine (Gemma-4 on RTX 4050)
+# Setup Environment for The Kairos Engine (Gemma 4 GGUF + XGBoost)
 
-param(
-    [string]$PythonExe = "python"
-)
+Write-Host "⚡ Setting up Python Virtual Environment for The Kairos Engine..." -ForegroundColor Cyan
 
-$ErrorActionPreference = "Stop"
-
-if (-Not (Test-Path "venv")) {
-    Write-Host "Creating Python virtual environment 'venv' using $PythonExe..."
-    & $PythonExe -m venv venv
-} else {
-    Write-Host "Virtual environment 'venv' already exists."
+# Create virtual environment if not existing
+if (-not (Test-Path "venv")) {
+    python -m venv venv
+    Write-Host "[OK] Created venv." -ForegroundColor Green
 }
 
-Write-Host "Activating virtual environment..."
-$env:VIRTUAL_ENV = "$PWD\venv"
-$env:Path = "$PWD\venv\Scripts;$env:Path"
+# Activate
+.\venv\Scripts\Activate.ps1
 
-Write-Host "Upgrading pip..."
+# Upgrade Pip
 python -m pip install --upgrade pip
 
-Write-Host "Installing dependencies from requirements.txt..."
-# We install torch first manually to ensure cu121 is picked up correctly if requirements.txt gives issues,
-# but our requirements.txt has the extra-index-url. Let's just use pip install -r requirements.txt.
+# Install dependencies
 pip install -r requirements.txt
 
-Write-Host "Environment setup complete!"
-Write-Host "To activate in the future, run: .\venv\Scripts\Activate.ps1"
+# Install llama-cpp-python CPU wheel
+pip install llama-cpp-python --prefer-binary --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+
+# Train XGBoost risk model
+python build_crash_predictor.py
+
+Write-Host "`n🚀 Environment setup complete! Run 'python main.py' to launch Kairos Engine." -ForegroundColor Green
