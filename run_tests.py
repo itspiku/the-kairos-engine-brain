@@ -3,10 +3,14 @@ The Kairos Engine - Test Runner Script
 """
 
 import sys
+import io
+if hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
 import unittest
 
 if __name__ == "__main__":
-    print("⚡ Running Kairos Engine Test Suite...\n")
+    print("[TEST] Running Kairos Engine Test Suite...\n")
     loader = unittest.TestLoader()
     suite = loader.discover("tests")
     runner = unittest.TextTestRunner(verbosity=2)
