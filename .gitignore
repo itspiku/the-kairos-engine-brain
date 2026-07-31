@@ -1,0 +1,7 @@
+models/
+*.exe
+__pycache__/
+*.pyc
+flight_plan_map.html
+.vscode/
+.idea/
