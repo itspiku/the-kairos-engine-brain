@@ -1,71 +1,60 @@
 """
-Khumbu Engine — Entry point
+The Kairos Engine — CLI Entry Point
 Downloads Gemma 4 E2B Q4_K_M GGUF if not present, then runs the demo mission.
 """
+
 import sys
 import io
-# Force UTF-8 on Windows stdout so Unicode characters display correctly
 if hasattr(sys.stdout, 'buffer'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-import os
 import json
 from pathlib import Path
+from src.config import DEFAULT_MODEL_REPO, DEFAULT_MODEL_FILENAME, MODEL_DIR, DEFAULT_ORIGIN, DEFAULT_DESTINATION
 
-# ── Model download ─────────────────────────────────────────────────────────────
-REPO_ID   = "unsloth/gemma-4-E2B-it-GGUF"
-FILENAME  = "gemma-4-E2B-it-Q4_K_M.gguf"
-MODEL_DIR = Path("./models")
 
 def ensure_model() -> str:
-    """
-    Download the GGUF model from Hugging Face if it is not already present.
-    Returns the local path to the model file.
-    """
+    """Download the GGUF model from Hugging Face if not present."""
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = MODEL_DIR / FILENAME
+    model_path = MODEL_DIR / DEFAULT_MODEL_FILENAME
 
     if model_path.exists():
         size_gb = model_path.stat().st_size / (1024 ** 3)
-        print(f"[OK] Model already present: {model_path}  ({size_gb:.2f} GB)")
+        print(f"[OK] Model present: {model_path} ({size_gb:.2f} GB)")
         return str(model_path)
 
-    print(f"[>>] Model not found. Downloading from HuggingFace...")
-    print(f"   Repo     : {REPO_ID}")
-    print(f"   File     : {FILENAME}")
-    print(f"   Dest     : {model_path}")
-    print(f"   Size     : ~3.46 GB — this may take a few minutes.\n")
+    print(f"[>>] Downloading Gemma 4 GGUF from HuggingFace...")
+    print(f"   Repo : {DEFAULT_MODEL_REPO}")
+    print(f"   File : {DEFAULT_MODEL_FILENAME}")
+    print(f"   Dest : {model_path}\n")
 
     from huggingface_hub import hf_hub_download
     local = hf_hub_download(
-        repo_id   = REPO_ID,
-        filename  = FILENAME,
-        local_dir = str(MODEL_DIR),
+        repo_id=DEFAULT_MODEL_REPO,
+        filename=DEFAULT_MODEL_FILENAME,
+        local_dir=str(MODEL_DIR),
     )
     print(f"\n[OK] Download complete: {local}\n")
     return local
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
 def main():
-    # 1. Ensure the GGUF model is available
     model_path = ensure_model()
 
-    # 2. Initialise the brain (loads GGUF into GPU via llama-cpp-python)
-    from src.brain import GemmaBrain
-    brain = GemmaBrain(model_path=model_path)
+    from src.brain import KairosBrain
+    brain = KairosBrain(model_path=model_path)
 
-    # ── TEST 1: Pre-flight Planning ──
+    # ── MISSION A: Pre-flight Planning ──
     mission = (
-        "Send oxytocin to the clinic in Muktinath (28.8167, 83.8667) "
-        "before the storm hits in 90 minutes. Origin is Pokhara (28.2096, 83.9856)."
+        f"Send oxytocin to the clinic in Muktinath ({DEFAULT_DESTINATION[0]}, {DEFAULT_DESTINATION[1]}) "
+        f"before the storm hits in 90 minutes. Origin is Pokhara Base ({DEFAULT_ORIGIN[0]}, {DEFAULT_ORIGIN[1]})."
     )
-    plan = brain.pre_flight_plan(mission)
+    plan = brain.pre_flight_plan(mission, drone_id="KAIROS-01")
 
-    print("\n[PLAN] FLIGHT PLAN SUMMARY:")
+    print("\n[PLAN] KAIROS FLIGHT PLAN SUMMARY:")
     print(json.dumps(plan, indent=2))
 
-    # ── TEST 2: In-flight Anomaly ──
+    # ── MISSION B: In-flight Anomaly Re-planning ──
     telemetry = {
         "lat": 28.3500, "lon": 83.8800, "altitude_m": 3200,
         "battery_pct": 42, "drain_rate": 4.2,
@@ -77,7 +66,7 @@ def main():
 
     decision = brain.in_flight_decision(telemetry, plan)
 
-    print("\n[DECISION] FLIGHT DECISION SUMMARY:")
+    print("\n[DECISION] KAIROS FLIGHT DECISION SUMMARY:")
     print(json.dumps(decision, indent=2))
 
 
