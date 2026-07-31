@@ -1,7 +1,7 @@
 """
-XGBoost Crash Predictor Tool for the Khumbu Engine
+XGBoost Crash Predictor Tool for The Kairos Engine
 Simulates 5,000 physics-informed flight scenarios in the Himalayas,
-trains an XGBoost binary classifier, saves the model to khumbu_crash_predictor.json,
+trains an XGBoost binary classifier, saves the model to kairos_crash_predictor.json,
 and exposes the `assess_risk` tool function for Gemma 4.
 """
 
@@ -61,7 +61,7 @@ def generate_synthetic_data(n_samples: int = 5000, seed: int = 42) -> pd.DataFra
 
 
 # ── STEP 2: Train and Save XGBoost Model ──────────────────────────────────────
-def train_crash_predictor(df: pd.DataFrame, model_path: str = "khumbu_crash_predictor.json"):
+def train_crash_predictor(df: pd.DataFrame, model_path: str = "kairos_crash_predictor.json"):
     """Trains an XGBClassifier on flight data and saves the model."""
     feature_cols = ["battery_pct", "wind_speed_ms", "altitude_m", "action"]
     X = df[feature_cols]
@@ -92,35 +92,20 @@ def train_crash_predictor(df: pd.DataFrame, model_path: str = "khumbu_crash_pred
 
 
 # ── STEP 3: Create the Tool Wrapper for Gemma 4 ──────────────────────────────
-def assess_risk(battery_pct: float, wind_speed_ms: float, altitude_m: int, proposed_action: str, model_path: str = "khumbu_crash_predictor.json") -> dict:
+def assess_risk(battery_pct: float, wind_speed_ms: float, altitude_m: int, proposed_action: str, model_path: str = "kairos_crash_predictor.json") -> dict:
     """
     Tool function called by Gemma 4 to assess flight crash risk.
-    
-    Args:
-        battery_pct (float): 0.10 to 0.60
-        wind_speed_ms (float): 0 to 25
-        altitude_m (int): 1000 to 5000
-        proposed_action (str): "CONTINUE", "RTL", or "DIVERT"
-        
-    Returns:
-        dict: {crash_probability, risk_level, data_source}
     """
-    # 1. Map proposed_action string to integer code
     action_map = {"CONTINUE": 0, "RTL": 1, "DIVERT": 2}
     action_code = action_map.get(str(proposed_action).upper(), 0)
     
-    # 2. Load the saved XGBoost model
     model = xgb.XGBClassifier()
     model.load_model(model_path)
     
-    # 3. Create feature array
     features = np.array([[float(battery_pct), float(wind_speed_ms), float(altitude_m), int(action_code)]])
-    
-    # 4. Predict crash probability
     probs = model.predict_proba(features)[0]
     crash_prob = float(probs[1])
     
-    # 5. Categorize risk level
     if crash_prob > 0.7:
         risk_level = "Critical"
     elif crash_prob > 0.4:
@@ -128,7 +113,6 @@ def assess_risk(battery_pct: float, wind_speed_ms: float, altitude_m: int, propo
     else:
         risk_level = "Acceptable"
         
-    # 6. Return structured dictionary
     return {
         "crash_probability": round(crash_prob, 2),
         "risk_level": risk_level,
@@ -138,32 +122,25 @@ def assess_risk(battery_pct: float, wind_speed_ms: float, altitude_m: int, propo
 
 # ── STEP 4: Test Block ────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("═" * 60)
-    print("🚁 KHUMBU ENGINE - XGBOOST CRASH PREDICTOR BUILDER & TEST")
-    print("═" * 60)
+    print("=" * 60)
+    print("🚁 THE KAIROS ENGINE - XGBOOST CRASH PREDICTOR BUILDER & TEST")
+    print("=" * 60)
     
-    # 1. Data Generation
     print("\n[1] Generating 5,000 synthetic physics-informed flight logs...")
     data = generate_synthetic_data(n_samples=5000)
-    print(f"    Generated DataFrame shape: {data.shape}")
-    print(f"    Crash distribution:\n{data['crash'].value_counts(normalize=True).to_dict()}")
     
-    # 2. Model Training
     print("\n[2] Training XGBoost Classifier...")
     trained_model = train_crash_predictor(data)
     
-    # 3. Test `assess_risk` tool call
-    print("[3] Testing `assess_risk` tool wrapper with test parameters:")
+    print("[3] Testing `assess_risk` tool wrapper:")
     test_params = {
         "battery_pct": 0.2,
         "wind_speed_ms": 18,
         "altitude_m": 4000,
         "proposed_action": "RTL"
     }
-    print(f"    Inputs: {test_params}")
-    
     result = assess_risk(**test_params)
     
     print("\n🎯 TOOL RESULT (JSON):")
     print(json.dumps(result, indent=2))
-    print("═" * 60)
+    print("=" * 60)
