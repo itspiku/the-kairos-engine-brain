@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-08-01T14:29:27Z",
+  "n_samples": 10000,
+  "n_features": 8,
+  "features": [
+    "battery_pct",
+    "wind_speed_ms",
+    "altitude_m",
+    "action",
+    "temperature_c",
+    "visibility_km",
+    "slope_gradient_deg",
+    "icing_risk"
+  ],
+  "accuracy": 0.9435,
+  "precision": 0.9311,
+  "recall": 0.9824,
+  "f1_score": 0.956,
+  "cv_mean": 0.9457,
+  "cv_std": 0.0023
+}
