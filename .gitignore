@@ -1,7 +1,48 @@
-/models/
-*.exe
+# Python
 __pycache__/
-*.pyc
-flight_plan_map.html
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Models (large binary files)
+models/*.gguf
+models/.cache/
+
+# Binaries - DO NOT commit installers
+python-installer.exe
+*.exe
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Environment & Secrets
+.env
+.env.local
+
+# Logs & Output
+logs/
+*.log
+flight_plan_map.html
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

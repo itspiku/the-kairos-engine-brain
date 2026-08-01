@@ -1,9 +1,20 @@
-# Khumbu Engine - GGUF/llama.cpp backend (replaces transformers + bitsandbytes)
-llama-cpp-python
-huggingface_hub
+# Kairos Engine - Core Dependencies (GGUF/llama.cpp + XGBoost + Real APIs)
+llama-cpp-python>=0.3.0
+huggingface_hub>=0.20
 
-# Utility
-networkx
-folium
-numpy
-pandas
+# ML & Data
+xgboost>=2.0
+scikit-learn>=1.3
+numpy>=1.24
+pandas>=2.0
+
+# Routing & Visualization
+networkx>=3.2
+folium>=0.15
+
+# API Integration
+requests>=2.31
+
+# Testing (dev)
+pytest>=7.4
+pytest-cov>=4.1
