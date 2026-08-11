@@ -15,6 +15,9 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 from src.core.units import normalize_battery_fraction
+from src.config import (
+    BATTERY_CAPACITY_WH, ENERGY_PER_KM_WH, ENERGY_RESERVE_FRACTION,
+)
 
 logger = logging.getLogger("kairos.tools")
 
@@ -251,8 +254,8 @@ def get_battery_state(drone_id: str) -> dict:
     state["last_update"] = time.time()
 
     # Estimated range based on remaining energy
-    remaining_energy_wh = state["soc"] / 100.0 * 800  # 800 Wh total capacity
-    est_range = remaining_energy_wh / 35.0  # ~35 Wh/km consumption
+    remaining_energy_wh = state["soc"] / 100.0 * BATTERY_CAPACITY_WH
+    est_range = remaining_energy_wh / ENERGY_PER_KM_WH
 
     status = "nominal"
     if state["soc"] < 15:
@@ -417,9 +420,9 @@ def recompute_route_from_current_pos(current_pos: list, battery_remaining_pct: f
         current_pos, DEFAULT_DESTINATION, wind=wind,
     )
 
-    remaining_energy_wh = normalize_battery_fraction(battery_remaining_pct) * 800
+    remaining_energy_wh = normalize_battery_fraction(battery_remaining_pct) * BATTERY_CAPACITY_WH
     required_energy = route_data["estimated_energy_wh"]
-    feasible = remaining_energy_wh > required_energy * 1.15  # 15% safety margin
+    feasible = remaining_energy_wh > required_energy * (1 + ENERGY_RESERVE_FRACTION)
 
     result = {
         "feasible": feasible,
@@ -442,6 +445,9 @@ def recompute_route_from_current_pos(current_pos: list, battery_remaining_pct: f
                 "waypoints": alt_route["waypoints"],
                 "energy_wh": alt_route["estimated_energy_wh"],
                 "feasible": remaining_energy_wh > alt_route["estimated_energy_wh"] * 1.1,
+                "reserve_on_arrival_pct": round(
+                    (remaining_energy_wh - alt_route["estimated_energy_wh"])
+                    / BATTERY_CAPACITY_WH * 100, 1),
             }
 
     return result

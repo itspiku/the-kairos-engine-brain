@@ -10,6 +10,11 @@ import math
 import logging
 from typing import List, Dict, Any, Optional
 
+from src.config import (
+    BATTERY_CAPACITY_WH, CRUISE_SPEED_MS, ENERGY_PER_KM_WH,
+    ENERGY_PER_CLIMB_M_WH, ENERGY_PER_KM_PER_DEG, WIND_ADVERSE_FRACTION,
+)
+
 logger = logging.getLogger("kairos.routing")
 
 
@@ -17,13 +22,18 @@ class KairosEnergyRouter:
     """
     Weighted Dijkstra Pathfinding Engine for BVLOS Drones in High-Altitude Terrain.
     Edge energy cost: E = k1(distance) + k2(altitude_gain) + k3(headwind) + k4(temp_drop)
+
+    Every term scales with the length of the edge it is charged against, so the
+    total cost of a route is independent of how finely the corridor is segmented.
     """
 
-    # Energy cost coefficients
-    K_DISTANCE  = 25.0    # Wh per km
-    K_ALTITUDE  = 0.15    # Wh per meter climb
-    K_WIND      = 0.50    # Wind drag coefficient
-    K_TEMP      = 0.02    # Wh per degree below 15°C
+    # Energy cost coefficients — see src/config.py for how each is derived.
+    K_DISTANCE  = ENERGY_PER_KM_WH        # Wh per km of level cruise
+    K_ALTITUDE  = ENERGY_PER_CLIMB_M_WH   # Wh per metre of climb
+    K_WIND      = WIND_ADVERSE_FRACTION   # Share of wind treated as headwind
+    K_TEMP      = ENERGY_PER_KM_PER_DEG   # Wh per km per °C below 15°C
+    CRUISE_MS   = CRUISE_SPEED_MS         # Cruise airspeed the burn rate assumes
+    CAPACITY_WH = BATTERY_CAPACITY_WH     # Usable pack energy
 
     @staticmethod
     def haversine(p1: List[float], p2: List[float]) -> float:
@@ -41,15 +51,39 @@ class KairosEnergyRouter:
                             wind_speed: float = 0.0,
                             alt_gain: float = 0.0,
                             temp_c: float = 15.0) -> float:
-        """Calculate energy cost for traversing an edge between two points."""
-        dist_km = KairosEnergyRouter.haversine(p1, p2)
+        """
+        Calculate energy cost in Wh for traversing an edge between two points.
 
-        base_cost = dist_km * KairosEnergyRouter.K_DISTANCE
-        altitude_penalty = max(0, alt_gain) * KairosEnergyRouter.K_ALTITUDE
-        wind_penalty = (wind_speed ** 1.8) * KairosEnergyRouter.K_WIND
-        temp_penalty = max(0, 15 - temp_c) * KairosEnergyRouter.K_TEMP * dist_km
+        The wind term is charged per kilometre, not per edge. It previously used
+        `wind_speed ** 1.8` with no distance factor, so identical wind cost the
+        same energy over 1 km as over 55 km — which made the total energy of a
+        route depend on how many segments the corridor was cut into.
+
+        Headwind raises the burn rate because ground speed falls while airspeed
+        power stays roughly constant, so the penalty is modelled as a fractional
+        uplift on cruise burn proportional to wind speed over cruise speed.
+        """
+        cls = KairosEnergyRouter
+        dist_km = cls.haversine(p1, p2)
+
+        base_cost = dist_km * cls.K_DISTANCE
+        altitude_penalty = max(0.0, alt_gain) * cls.K_ALTITUDE
+        wind_ratio = max(0.0, wind_speed) / cls.CRUISE_MS
+        wind_penalty = cls.K_WIND * wind_ratio * dist_km * cls.K_DISTANCE
+        temp_penalty = max(0.0, 15 - temp_c) * cls.K_TEMP * dist_km
 
         return round(base_cost + altitude_penalty + wind_penalty + temp_penalty, 2)
+
+    @classmethod
+    def flight_time_min(cls, distance_km: float) -> float:
+        """
+        Convert route distance to flight time in minutes.
+
+        Previously computed as `energy_wh / 35.0`, where 35 is documented
+        elsewhere in this codebase as Wh **per km** — so the result was a
+        distance in kilometres reported in a field named minutes.
+        """
+        return round(distance_km / cls.CRUISE_MS * 1000.0 / 60.0, 1)
 
     @classmethod
     def _build_corridor_graph(cls, origin: List[float], destination: List[float],
@@ -175,9 +209,10 @@ class KairosEnergyRouter:
                 return {
                     "waypoints": waypoints,
                     "estimated_energy_wh": round(total_energy, 1),
-                    "flight_time_min": round(total_energy / 35.0, 1),
+                    "flight_time_min": cls.flight_time_min(total_distance),
                     "max_altitude": 4500,
-                    "energy_margin_pct": round(max(0, (800 - total_energy) / 800 * 100), 1),
+                    "energy_margin_pct": round(
+                        (cls.CAPACITY_WH - total_energy) / cls.CAPACITY_WH * 100, 1),
                     "route_segments": route_segments,
                     "total_distance_km": round(total_distance, 1),
                     "algorithm": "dijkstra_networkx",
@@ -212,9 +247,10 @@ class KairosEnergyRouter:
         return {
             "waypoints": waypoints,
             "estimated_energy_wh": round(total_energy, 1),
-            "flight_time_min": round(total_energy / 35.0, 1),
+            "flight_time_min": cls.flight_time_min(total_dist),
             "max_altitude": 3850,
-            "energy_margin_pct": round(max(0, (800 - total_energy) / 800 * 100), 1),
+            "energy_margin_pct": round(
+                (cls.CAPACITY_WH - total_energy) / cls.CAPACITY_WH * 100, 1),
             "route_segments": [],
             "total_distance_km": round(total_dist, 1),
             "algorithm": "linear_fallback",
@@ -246,7 +282,7 @@ class KairosEnergyRouter:
                     "waypoints": waypoints,
                     "estimated_energy_wh": round(total_energy, 1),
                     "total_distance_km": round(total_dist, 1),
-                    "flight_time_min": round(total_energy / 35.0, 1),
+                    "flight_time_min": cls.flight_time_min(total_dist),
                 })
             return results
         except Exception:
