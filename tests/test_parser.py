@@ -95,6 +95,78 @@ class TestGemmaParser(unittest.TestCase):
         errors = GemmaParser.validate_tool_call(call, schemas)
         self.assertTrue(any("Unknown tool" in e for e in errors))
 
+    # ── Real Gemma output format ──────────────────────────────────────────
+    # Captured verbatim from the local gemma-4-E2B-it-Q4_K_M.gguf. The prompt in
+    # src/models/llm.py instructs the model to use `<|tool_call|>call:name{...}`,
+    # and it complies exactly. Every test above uses an abbreviated form the model
+    # never emits, which is how a broken opening-delimiter regex passed CI while
+    # dropping 100% of real tool calls.
+
+    REAL_COMPLETION_TAIL = (
+        "*Start generating the first set of calls.*<channel|>"
+        '<|tool_call|>call:get_delivery_priority{payload_type:<|"|>oxytocin<|"|>}<tool_call|>'
+    )
+
+    def test_real_model_output_is_parsed(self):
+        calls = GemmaParser.extract_tool_calls(self.REAL_COMPLETION_TAIL)
+        self.assertEqual(len(calls), 1, "real Gemma tool-call syntax must parse")
+        self.assertEqual(calls[0]["name"], "get_delivery_priority")
+        self.assertEqual(calls[0]["arguments"]["payload_type"], "oxytocin")
+
+    def test_full_pipe_angle_delimiter(self):
+        """`<|tool_call|>` — both delimiter chars, the form the model emits."""
+        dsl = '<|tool_call|>call:get_battery_state{drone_id:<|"|>KAIROS-01<|"|>}<tool_call|>'
+        calls = GemmaParser.extract_tool_calls(dsl)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["arguments"]["drone_id"], "KAIROS-01")
+
+    def test_all_opening_delimiter_variants_equivalent(self):
+        variants = [
+            '<|tool_call|>call:get_delivery_priority{payload_type:<|"|>insulin<|"|>}<tool_call|>',
+            '<|tool_call|get_delivery_priority{payload_type:<|"|>insulin<|"|>}<tool_call|>',
+            '<|tool_call>get_delivery_priority{payload_type:<|"|>insulin<|"|>}<tool_call|>',
+        ]
+        for dsl in variants:
+            calls = GemmaParser.extract_tool_calls(dsl)
+            self.assertEqual(len(calls), 1, f"failed to parse: {dsl}")
+            self.assertEqual(calls[0]["name"], "get_delivery_priority")
+            self.assertEqual(calls[0]["arguments"]["payload_type"], "insulin")
+
+    def test_real_format_multiple_calls(self):
+        dsl = (
+            '<|tool_call|>call:get_wind_forecast{lat:28.2,lon:83.9,altitude_m:3000,'
+            'time:<|"|>now<|"|>}<tool_call|> then '
+            '<|tool_call|>call:assess_risk{battery_pct:42,wind_speed_ms:18,'
+            'altitude_m:3200,proposed_action:<|"|>DIVERT<|"|>}<tool_call|>'
+        )
+        calls = GemmaParser.extract_tool_calls(dsl)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual([c["name"] for c in calls], ["get_wind_forecast", "assess_risk"])
+        self.assertEqual(calls[1]["arguments"]["battery_pct"], 42)
+
+    def test_real_format_nested_object_arg(self):
+        dsl = ('<|tool_call|>call:check_airspace_restrictions'
+               '{bbox:{north:29,south:28,east:84,west:83}}<tool_call|>')
+        calls = GemmaParser.extract_tool_calls(dsl)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["arguments"]["bbox"]["north"], 29)
+
+    def test_real_format_array_arg(self):
+        dsl = ('<|tool_call|>call:get_terrain_elevation_profile'
+               '{route:[[28.2096,83.9856],[28.8167,83.8667]]}<tool_call|>')
+        calls = GemmaParser.extract_tool_calls(dsl)
+        self.assertEqual(len(calls), 1)
+        route = calls[0]["arguments"]["route"]
+        self.assertEqual(len(route), 2)
+        self.assertAlmostEqual(route[0][0], 28.2096, places=3)
+
+    def test_parsed_real_call_validates_against_schema(self):
+        """A call the model actually produces must survive schema validation."""
+        from src.tools.definitions import get_tool_definitions
+        calls = GemmaParser.extract_tool_calls(self.REAL_COMPLETION_TAIL)
+        errors = GemmaParser.validate_tool_call(calls[0], get_tool_definitions())
+        self.assertEqual(errors, [])
+
     def test_mixed_arg_types(self):
         dsl = "<|tool_call|assess_risk{battery_pct:0.35,wind_speed_ms:12.5,altitude_m:3500,proposed_action:<|\"|>CONTINUE<|\"|>}<tool_call|>"
         calls = GemmaParser.extract_tool_calls(dsl)

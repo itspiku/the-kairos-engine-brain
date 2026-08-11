@@ -44,11 +44,19 @@ class GemmaParser:
 
         return []
 
+    # Opening delimiter varies by how the model closes the tag. Verified against
+    # real Gemma output, which emits the full `<|tool_call|>call:` form:
+    #   <|tool_call|>call:name{...}<tool_call|>   <- what the model actually produces
+    #   <|tool_call|name{...}<tool_call|>         <- abbreviated form
+    #   <|tool_call>name{...}<tool_call|>
+    # `\|?>?` accepts `|`, `>`, `|>`, or neither; an earlier `(?:\||\>)?` matched
+    # only one of the two characters and so silently dropped every real tool call.
+    _DSL_PATTERN = r"<\|tool_call\|?>?\s*(?:call:)?(\w+)\s*\{(.*?)\}\s*<tool_call\|?>"
+
     @staticmethod
     def _parse_native_dsl(text: str) -> List[Dict[str, Any]]:
         """Parse Gemma 4 native tool call DSL format."""
-        pattern = r"<\|tool_call(?:\||\>)?(?:call:)?(\w+)\{(.*?)\}<tool_call\|?>"
-        matches = re.findall(pattern, text, re.DOTALL)
+        matches = re.findall(GemmaParser._DSL_PATTERN, text, re.DOTALL)
 
         calls = []
         for name, args_str in matches:
