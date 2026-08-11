@@ -120,6 +120,7 @@ def main():
 
     # ── MISSION B: In-flight Anomaly Re-planning ──
     if not args.no_inflight:
+        decision = None
         telemetry = TelemetryReport(
             lat=28.3500, lon=83.8800, altitude_m=3200,
             battery_pct=42, drain_rate=4.2,
