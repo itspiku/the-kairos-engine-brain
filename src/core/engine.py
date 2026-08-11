@@ -18,6 +18,7 @@ from src.utils.logger import KairosLogger
 from src.utils.formatter import format_telemetry_prompt, format_mission_summary
 from src.core.telemetry import TelemetryReport
 from src.core.types import FlightAction, CognitiveResponse
+from src.parser import GemmaParser
 from src.core.exceptions import KairosError, SLAViolationError
 from src.telemetry.anomaly_detector import KairosAnomalyDetector
 
@@ -178,13 +179,17 @@ class KairosEngine:
 
         decision_text = res["content"]
 
-        # Parse decision from LLM output
-        decision = FlightAction.CONTINUE.value
-        for d in [FlightAction.DIVERT, FlightAction.LAND, FlightAction.ABORT,
-                  FlightAction.RE_TASK, FlightAction.RTL, FlightAction.CONTINUE]:
-            if d.value in decision_text.upper():
-                decision = d.value
-                break
+        # Parse the decision from the LLM rationale. When nothing parses, fall back
+        # to the anomaly detector's deterministic recommendation rather than to
+        # CONTINUE: an unreadable response is the worst case in which to assume it
+        # is safe to fly on.
+        decision = GemmaParser.extract_decision(decision_text)
+        if decision is None:
+            decision = recommended_action
+            KairosLogger.warn(
+                f"No decision parsed from LLM output; falling back to deterministic "
+                f"recommendation: {recommended_action}"
+            )
 
         meets_sla = res["latency_sec"] <= MAX_LATENCY_SLA_SEC
         KairosLogger.decision(decision, meets_sla=meets_sla)

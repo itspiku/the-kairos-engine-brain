@@ -257,6 +257,44 @@ class GemmaParser:
 
         return calls
 
+    # Actions are checked most-cautious-first, so a rationale that weighs several
+    # options ("considered CONTINUE, chose DIVERT") resolves to the safer one.
+    _DECISION_PRIORITY = ["ABORT", "LAND", "DIVERT", "RTL", "RE-TASK", "CONTINUE"]
+
+    # An explicit declaration wins over anything found in the prose around it.
+    _DECISION_DECLARATION = re.compile(
+        r"(?:^|\n)\s*(?:\**\s*)?(?:FINAL\s+)?DECISION\s*(?:\**)?\s*[:\-]\s*(?:\**\s*)?"
+        r"(ABORT|LAND|DIVERT|RTL|RE-TASK|CONTINUE)\b",
+        re.IGNORECASE,
+    )
+
+    @staticmethod
+    def extract_decision(text: str, default: Optional[str] = None) -> Optional[str]:
+        """
+        Extract a flight action from an LLM rationale.
+
+        Returns `default` when nothing is found. Callers must pass a *safe*
+        default — never CONTINUE — because an unparseable response is exactly
+        the case where flying on is least justified.
+
+        Matching is word-boundaried. Substring matching would resolve
+        "continue to the landing zone" to LAND, since LAND appears inside
+        "landing".
+        """
+        if not text or not text.strip():
+            return default
+
+        declared = GemmaParser._DECISION_DECLARATION.search(text)
+        if declared:
+            return declared.group(1).upper()
+
+        upper = text.upper()
+        for action in GemmaParser._DECISION_PRIORITY:
+            if re.search(rf"\b{re.escape(action)}\b", upper):
+                return action
+
+        return default
+
     @staticmethod
     def validate_tool_call(call: Dict[str, Any], tool_schemas: List[Dict]) -> List[str]:
         """
