@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional, Tuple
 
 from src.config import RISK_MODEL_PATH, CRITICAL_RISK_THRESHOLD, HIGH_RISK_THRESHOLD
 from src.core.exceptions import ModelLoadError
+from src.core.units import normalize_battery_fraction
 
 logger = logging.getLogger("kairos.risk")
 
@@ -80,10 +81,14 @@ class KairosRiskClassifier:
         """
         Predict crash probability and risk level.
         Supports both 4-feature and 8-feature models automatically.
+
+        `battery_pct` is normalized to the model's 0.0-1.0 training domain, so
+        callers may pass either percent (42.0) or a fraction (0.42).
         """
         self._ensure_loaded()
         import numpy as np
 
+        battery_pct = normalize_battery_fraction(battery_pct)
         action_map = {"CONTINUE": 0, "RTL": 1, "DIVERT": 2, "LAND": 2, "ABORT": 1}
         action_code = action_map.get(str(proposed_action).upper(), 0)
 

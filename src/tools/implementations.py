@@ -14,6 +14,8 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+from src.core.units import normalize_battery_fraction
+
 logger = logging.getLogger("kairos.tools")
 
 LOGS_DIR = Path("logs")
@@ -415,7 +417,7 @@ def recompute_route_from_current_pos(current_pos: list, battery_remaining_pct: f
         current_pos, DEFAULT_DESTINATION, wind=wind,
     )
 
-    remaining_energy_wh = battery_remaining_pct / 100.0 * 800
+    remaining_energy_wh = normalize_battery_fraction(battery_remaining_pct) * 800
     required_energy = route_data["estimated_energy_wh"]
     feasible = remaining_energy_wh > required_energy * 1.15  # 15% safety margin
 
@@ -533,8 +535,13 @@ def assess_risk(battery_pct: float, wind_speed_ms: float,
     """
     Predict crash probability using the XGBoost risk classifier.
     Uses singleton model instance for efficiency.
+
+    `battery_pct` accepts either the engine's percent convention (42.0) or the
+    model's fraction convention (0.42); see normalize_battery_fraction.
     """
     global _risk_classifier_instance
+
+    battery_pct = normalize_battery_fraction(battery_pct)
 
     if _risk_classifier_instance is None:
         try:
@@ -588,6 +595,7 @@ def _rule_based_risk(battery_pct: float, wind_speed_ms: float,
                      altitude_m: float, proposed_action: str) -> dict:
     """Rule-based risk assessment as fallback when ML model unavailable."""
     risk_score = 0.0
+    battery_pct = normalize_battery_fraction(battery_pct)
     action_upper = str(proposed_action).upper()
 
     if battery_pct < 0.25:

@@ -174,7 +174,14 @@ def assess_risk(battery_pct: float, wind_speed_ms: float,
     """
     Tool function called by Gemma 4 to assess flight crash risk.
     Supports both 4-feature (legacy) and 8-feature (expanded) calls.
+
+    `battery_pct` accepts percent (42) or fraction (0.42); the model is trained
+    on fractions, so it is normalized here.
     """
+    # Imported lazily to keep this training script standalone.
+    from src.core.units import normalize_battery_fraction
+
+    battery_pct = normalize_battery_fraction(battery_pct)
     action_map = {"CONTINUE": 0, "RTL": 1, "DIVERT": 2, "LAND": 2, "ABORT": 1}
     action_code = action_map.get(str(proposed_action).upper(), 0)
 

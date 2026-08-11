@@ -180,7 +180,7 @@ def get_tool_definitions() -> List[Dict]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "battery_pct": {"type": "number", "description": "Battery remaining percentage (0.10 to 0.60)"},
+                        "battery_pct": {"type": "number", "description": "Battery remaining as a percentage, 0 to 100 (e.g. 42 for 42%)"},
                         "wind_speed_ms": {"type": "number", "description": "Headwind speed in meters/second (0 to 25)"},
                         "altitude_m": {"type": "integer", "description": "Current altitude in meters (1000 to 5000)"},
                         "proposed_action": {"type": "string", "description": "Proposed action: 'CONTINUE', 'RTL', or 'DIVERT'"}
